@@ -2,6 +2,7 @@ package com.liffeypay.liffeypay.exception;
 
 import com.liffeypay.liffeypay.dto.ApiResponse;
 import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
+import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleNotFound(ResourceNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(TransferNotAuthorizedException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ApiResponse<Void> handleTransferNotAuthorized(TransferNotAuthorizedException ex) {
+        log.warn("Transfer not authorized: {}", ex.getMessage());
         return ApiResponse.error(ex.getMessage());
     }
 
