@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: liffeypay-db
+    environment:
+      POSTGRES_DB: liffeypay
+      POSTGRES_USER: liffeypay
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
