@@ -13,6 +13,7 @@ import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class TransferService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final AuthorizationService authorizationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TransferResponse transfer(TransferRequest request, String idempotencyKey) {
@@ -83,6 +85,11 @@ public class TransferService {
         log.info("Transfer completed [txId={}] {} -> {} amount={} {}",
             saved.getId(), source.getId(), target.getId(),
             request.amount(), source.getCurrency());
+
+        eventPublisher.publishEvent(new TransferCompletedEvent(
+            saved.getId(), source.getId(), target.getId(),
+            saved.getAmount(), saved.getCurrency()
+        ));
 
         return toResponse(saved);
     }

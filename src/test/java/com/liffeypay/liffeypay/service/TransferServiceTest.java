@@ -10,6 +10,7 @@ import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.dto.TransferResponse;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
+import org.springframework.context.ApplicationEventPublisher;
 import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
@@ -36,6 +37,7 @@ class TransferServiceTest {
     @Mock WalletRepository walletRepository;
     @Mock TransactionRepository transactionRepository;
     @Mock AuthorizationService authorizationService;
+    @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks TransferService transferService;
 
     // sourceId < targetId ensures sourceFirst = true (consistent lock order in tests)
@@ -127,6 +129,19 @@ class TransferServiceTest {
             .isInstanceOf(MerchantTransferNotAllowedException.class);
 
         verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void transfer_success_publishesTransferCompletedEvent() {
+        when(walletRepository.findByIdWithLock(sourceId)).thenReturn(Optional.of(source));
+        when(walletRepository.findByIdWithLock(targetId)).thenReturn(Optional.of(target));
+        when(transactionRepository.save(any()))
+            .thenReturn(savedTx(sourceId, targetId, new BigDecimal("10.0000")));
+
+        transferService.transfer(
+            new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null);
+
+        verify(eventPublisher).publishEvent(any(TransferCompletedEvent.class));
     }
 
     @Test
