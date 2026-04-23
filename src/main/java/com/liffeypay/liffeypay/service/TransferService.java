@@ -26,6 +26,7 @@ public class TransferService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final AuthorizationService authorizationService;
 
     @Transactional
     public TransferResponse transfer(TransferRequest request, String idempotencyKey) {
@@ -38,6 +39,8 @@ public class TransferService {
     }
 
     private TransferResponse executeTransfer(TransferRequest request, String idempotencyKey) {
+        authorizationService.authorize(request);
+
         // Acquire DB locks in consistent UUID order to prevent deadlocks under concurrency
         boolean sourceFirst =
             request.sourceWalletId().compareTo(request.targetWalletId()) <= 0;

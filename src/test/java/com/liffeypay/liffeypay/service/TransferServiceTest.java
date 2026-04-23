@@ -12,6 +12,7 @@ import com.liffeypay.liffeypay.dto.TransferResponse;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
 import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
+import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +35,7 @@ class TransferServiceTest {
 
     @Mock WalletRepository walletRepository;
     @Mock TransactionRepository transactionRepository;
+    @Mock AuthorizationService authorizationService;
     @InjectMocks TransferService transferService;
 
     // sourceId < targetId ensures sourceFirst = true (consistent lock order in tests)
@@ -125,6 +127,29 @@ class TransferServiceTest {
             .isInstanceOf(MerchantTransferNotAllowedException.class);
 
         verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void transfer_deniedByAuthorizer_throwsTransferNotAuthorizedException() {
+        doThrow(new TransferNotAuthorizedException("Transfer denied"))
+            .when(authorizationService).authorize(any());
+
+        assertThatThrownBy(() -> transferService.transfer(
+            new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null))
+            .isInstanceOf(TransferNotAuthorizedException.class);
+
+        verify(walletRepository, never()).findByIdWithLock(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void transfer_authorizerUnavailable_throwsTransferNotAuthorizedException() {
+        doThrow(new TransferNotAuthorizedException("Authorization service unavailable"))
+            .when(authorizationService).authorize(any());
+
+        assertThatThrownBy(() -> transferService.transfer(
+            new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null))
+            .isInstanceOf(TransferNotAuthorizedException.class);
     }
 
     @Test
