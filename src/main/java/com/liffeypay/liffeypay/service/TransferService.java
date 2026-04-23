@@ -2,12 +2,14 @@ package com.liffeypay.liffeypay.service;
 
 import com.liffeypay.liffeypay.domain.model.Transaction;
 import com.liffeypay.liffeypay.domain.model.TransactionStatus;
+import com.liffeypay.liffeypay.domain.model.UserType;
 import com.liffeypay.liffeypay.domain.model.Wallet;
 import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.dto.TransferResponse;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
+import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +52,10 @@ public class TransferService {
 
         Wallet source = sourceFirst ? first  : second;
         Wallet target = sourceFirst ? second : first;
+
+        if (source.getUser().getUserType() == UserType.MERCHANT) {
+            throw new MerchantTransferNotAllowedException(source.getId());
+        }
 
         if (source.getBalance().compareTo(request.amount()) < 0) {
             throw new InsufficientFundsException(

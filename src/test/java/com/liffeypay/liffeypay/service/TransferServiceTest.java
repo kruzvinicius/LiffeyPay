@@ -2,12 +2,15 @@ package com.liffeypay.liffeypay.service;
 
 import com.liffeypay.liffeypay.domain.model.Transaction;
 import com.liffeypay.liffeypay.domain.model.TransactionStatus;
+import com.liffeypay.liffeypay.domain.model.User;
+import com.liffeypay.liffeypay.domain.model.UserType;
 import com.liffeypay.liffeypay.domain.model.Wallet;
 import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.dto.TransferResponse;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
+import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,8 +45,20 @@ class TransferServiceTest {
 
     @BeforeEach
     void setUp() {
-        source = Wallet.builder().id(sourceId).balance(new BigDecimal("100.0000")).currency("EUR").build();
-        target = Wallet.builder().id(targetId).balance(new BigDecimal("50.0000")).currency("EUR").build();
+        source = Wallet.builder()
+            .id(sourceId).balance(new BigDecimal("100.0000")).currency("EUR")
+            .user(User.builder()
+                .id(UUID.randomUUID()).fullName("Sender").email("sender@test.com")
+                .documentNumber("12345678901").passwordHash("hash")
+                .userType(UserType.INDIVIDUAL).build())
+            .build();
+        target = Wallet.builder()
+            .id(targetId).balance(new BigDecimal("50.0000")).currency("EUR")
+            .user(User.builder()
+                .id(UUID.randomUUID()).fullName("Receiver").email("receiver@test.com")
+                .documentNumber("98765432100").passwordHash("hash")
+                .userType(UserType.INDIVIDUAL).build())
+            .build();
     }
 
     @Test
@@ -93,6 +108,26 @@ class TransferServiceTest {
     }
 
     @Test
+    void transfer_merchantSource_throwsMerchantTransferNotAllowedException() {
+        Wallet merchantWallet = Wallet.builder()
+            .id(sourceId).balance(new BigDecimal("100.0000")).currency("EUR")
+            .user(User.builder()
+                .id(UUID.randomUUID()).fullName("Shop").email("shop@test.com")
+                .documentNumber("12345678000100").passwordHash("hash")
+                .userType(UserType.MERCHANT).build())
+            .build();
+
+        when(walletRepository.findByIdWithLock(sourceId)).thenReturn(Optional.of(merchantWallet));
+        when(walletRepository.findByIdWithLock(targetId)).thenReturn(Optional.of(target));
+
+        assertThatThrownBy(() -> transferService.transfer(
+            new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null))
+            .isInstanceOf(MerchantTransferNotAllowedException.class);
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
     void transfer_withExistingIdempotencyKey_returnsCachedResultWithoutExecuting() {
         String key = "idem-key-123";
         when(transactionRepository.findByIdempotencyKey(key))
@@ -127,8 +162,20 @@ class TransferServiceTest {
         UUID bigSource = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
         UUID smallTarget = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-        Wallet bigSourceWallet = Wallet.builder().id(bigSource).balance(new BigDecimal("100.0000")).currency("EUR").build();
-        Wallet smallTargetWallet = Wallet.builder().id(smallTarget).balance(BigDecimal.ZERO).currency("EUR").build();
+        Wallet bigSourceWallet = Wallet.builder()
+            .id(bigSource).balance(new BigDecimal("100.0000")).currency("EUR")
+            .user(User.builder()
+                .id(UUID.randomUUID()).fullName("Big").email("big@test.com")
+                .documentNumber("11111111111").passwordHash("hash")
+                .userType(UserType.INDIVIDUAL).build())
+            .build();
+        Wallet smallTargetWallet = Wallet.builder()
+            .id(smallTarget).balance(BigDecimal.ZERO).currency("EUR")
+            .user(User.builder()
+                .id(UUID.randomUUID()).fullName("Small").email("small@test.com")
+                .documentNumber("22222222222").passwordHash("hash")
+                .userType(UserType.INDIVIDUAL).build())
+            .build();
 
         when(walletRepository.findByIdWithLock(bigSource)).thenReturn(Optional.of(bigSourceWallet));
         when(walletRepository.findByIdWithLock(smallTarget)).thenReturn(Optional.of(smallTargetWallet));
