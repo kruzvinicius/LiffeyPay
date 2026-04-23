@@ -33,5 +33,10 @@ build/
 .vscode/
 
 ### CLAUDE ###
-CLAUDE.md/
+.claude/
 
+### Node / Frontend (futuro) ###
+node_modules/
+dist/
+.env
+.env.local
