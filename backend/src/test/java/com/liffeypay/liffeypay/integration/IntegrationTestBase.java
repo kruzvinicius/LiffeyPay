@@ -17,8 +17,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Map;
 import java.util.UUID;
@@ -26,10 +24,9 @@ import java.util.UUID;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT)
-@Testcontainers
 public abstract class IntegrationTestBase {
 
-    @Container
+    // Singleton containers — started once per JVM, shared across all IT classes
     static final PostgreSQLContainer<?> postgres =
         new PostgreSQLContainer<>("postgres:16-alpine");
 
@@ -37,6 +34,7 @@ public abstract class IntegrationTestBase {
         new WireMockServer(WireMockConfiguration.wireMockConfig().dynamicPort());
 
     static {
+        postgres.start();
         wireMock.start();
     }
 
