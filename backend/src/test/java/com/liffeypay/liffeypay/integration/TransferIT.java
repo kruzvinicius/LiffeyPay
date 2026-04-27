@@ -1,6 +1,7 @@
 package com.liffeypay.liffeypay.integration;
 
 import com.github.tomakehurst.wiremock.http.Fault;
+import com.liffeypay.liffeypay.dto.TransferByEmailRequest;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -187,5 +188,46 @@ class TransferIT extends IntegrationTestBase {
             "/api/v1/transfers", HttpMethod.POST, withAuth(req, senderJwt), Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void transferByEmail_happyPath_balancesUpdatedInDb() {
+        wireMock.stubFor(get(urlEqualTo("/authorize"))
+            .willReturn(okJson(AUTHORIZED_BODY)));
+
+        String senderJwt   = registerAndLogin("emailsender@test.com", "password123");
+        String receiverJwt = registerAndLogin("emailreceiver@test.com", "password123");
+        UUID sourceWalletId = getWalletId(senderJwt);
+        UUID targetWalletId = getWalletId(receiverJwt);
+        jdbcTemplate.update("UPDATE wallets SET balance = 100.0000 WHERE id = ?", sourceWalletId);
+
+        TransferByEmailRequest req = new TransferByEmailRequest("emailreceiver@test.com", new BigDecimal("40.00"));
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+            "/api/v1/transfers/email", HttpMethod.POST, withAuth(req, senderJwt), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        BigDecimal sourceBalance = jdbcTemplate.queryForObject(
+            "SELECT balance FROM wallets WHERE id = ?", BigDecimal.class, sourceWalletId);
+        BigDecimal targetBalance = jdbcTemplate.queryForObject(
+            "SELECT balance FROM wallets WHERE id = ?", BigDecimal.class, targetWalletId);
+        assertThat(sourceBalance).isEqualByComparingTo("60.0000");
+        assertThat(targetBalance).isEqualByComparingTo("40.0000");
+    }
+
+    @Test
+    void transferByEmail_selfTransfer_returns422() {
+        wireMock.stubFor(get(urlEqualTo("/authorize"))
+            .willReturn(okJson(AUTHORIZED_BODY)));
+
+        String jwt = registerAndLogin("selfsender@test.com", "password123");
+        TransferByEmailRequest req = new TransferByEmailRequest("selfsender@test.com", new BigDecimal("10.00"));
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+            "/api/v1/transfers/email", HttpMethod.POST, withAuth(req, jwt), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
 }
