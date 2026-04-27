@@ -1,11 +1,13 @@
 package com.liffeypay.liffeypay.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.liffeypay.liffeypay.dto.TransferByEmailRequest;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.dto.TransferResponse;
 import com.liffeypay.liffeypay.exception.DuplicateTransferException;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
+import com.liffeypay.liffeypay.exception.SelfTransferException;
 import com.liffeypay.liffeypay.config.SecurityConfig;
 import com.liffeypay.liffeypay.service.TransferService;
 import org.junit.jupiter.api.Test;
@@ -175,5 +177,31 @@ class TransferControllerTest {
                 .andExpect(status().isCreated());
 
         verify(transferService).transfer(any(), eq(key));
+    }
+
+    @Test
+    void transferByEmail_authenticated_returns201() throws Exception {
+        when(transferService.transferByEmail(
+                eq("sender@test.com"), eq("bob@example.com"), any(), isNull()))
+            .thenReturn(mockResponse());
+
+        mockMvc.perform(post("/api/v1/transfers/email")
+                .with(jwt().jwt(j -> j.subject("sender@test.com")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                    new TransferByEmailRequest("bob@example.com", new BigDecimal("30.00")))))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.transactionId").value(TX_ID.toString()));
+    }
+
+    @Test
+    void transferByEmail_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/transfers/email")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                    new TransferByEmailRequest("bob@example.com", new BigDecimal("30.00")))))
+            .andExpect(status().isUnauthorized());
     }
 }
