@@ -2,6 +2,7 @@ package com.liffeypay.liffeypay.exception;
 
 import com.liffeypay.liffeypay.dto.ApiResponse;
 import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
+import com.liffeypay.liffeypay.exception.SelfTransferException;
 import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,6 +53,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     public ApiResponse<Void> handleMerchantTransfer(MerchantTransferNotAllowedException ex) {
         log.warn("Transfer rejected - merchant source: {}", ex.getMessage());
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(SelfTransferException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ApiResponse<Void> handleSelfTransfer(SelfTransferException ex) {
         return ApiResponse.error(ex.getMessage());
     }
 
