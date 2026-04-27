@@ -106,6 +106,11 @@ class WithdrawalIT extends IntegrationTestBase {
             withAuth(new WithdrawalRequest(new BigDecimal("50.00")), jwt), Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        UUID walletId = getWalletId(jwt);
+        BigDecimal balance = jdbcTemplate.queryForObject(
+            "SELECT balance FROM wallets WHERE id = ?", BigDecimal.class, walletId);
+        assertThat(balance).isEqualByComparingTo("100.0000");
     }
 
     @Test
