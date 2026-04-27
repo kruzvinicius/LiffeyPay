@@ -1,6 +1,7 @@
 package com.liffeypay.liffeypay.service;
 
 import com.liffeypay.liffeypay.domain.model.*;
+import com.liffeypay.liffeypay.domain.model.TransactionType;
 import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransactionResponse;
@@ -81,6 +82,27 @@ class TransactionServiceTest {
         assertThatThrownBy(() ->
             transactionService.getTransactions(walletId, OWNER_EMAIL, PageRequest.of(0, 20)))
             .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getTransactions_deposit_returnsDepositTypeWithNullCounterpart() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        Transaction deposit = Transaction.builder()
+            .id(UUID.randomUUID()).targetWallet(wallet)
+            .amount(new BigDecimal("100.0000")).currency("EUR")
+            .type(TransactionType.DEPOSIT)
+            .status(TransactionStatus.COMPLETED).createdAt(Instant.now()).build();
+
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findAllBySourceWalletIdOrTargetWalletId(walletId, walletId, pageable))
+            .thenReturn(new PageImpl<>(List.of(deposit)));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, pageable);
+
+        assertThat(result.getContent().get(0).type()).isEqualTo("DEPOSIT");
+        assertThat(result.getContent().get(0).counterpartWalletId()).isNull();
     }
 
     private Wallet walletWithEmail(UUID id, String email) {

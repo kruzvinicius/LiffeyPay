@@ -1,12 +1,9 @@
 package com.liffeypay.liffeypay;
 
-import org.junit.jupiter.api.Disabled;
+import com.liffeypay.liffeypay.integration.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-@Disabled("Requires a running PostgreSQL instance — run as integration test with a real DB")
-class LiffeyPayApplicationTests {
+class LiffeyPayApplicationTests extends IntegrationTestBase {
 
     @Test
     void contextLoads() {

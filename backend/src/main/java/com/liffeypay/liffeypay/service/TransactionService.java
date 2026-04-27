@@ -1,6 +1,7 @@
 package com.liffeypay.liffeypay.service;
 
 import com.liffeypay.liffeypay.domain.model.Transaction;
+import com.liffeypay.liffeypay.domain.model.TransactionType;
 import com.liffeypay.liffeypay.domain.model.Wallet;
 import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
@@ -35,6 +36,10 @@ public class TransactionService {
     }
 
     private TransactionResponse toResponse(Transaction t, UUID walletId) {
+        if (t.getType() == TransactionType.DEPOSIT) {
+            return new TransactionResponse(t.getId(), "DEPOSIT", null,
+                t.getAmount(), t.getCurrency(), t.getStatus().name(), t.getCreatedAt());
+        }
         boolean sent = t.getSourceWallet().getId().equals(walletId);
         UUID counterpart = sent ? t.getTargetWallet().getId() : t.getSourceWallet().getId();
         return new TransactionResponse(

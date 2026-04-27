@@ -161,7 +161,7 @@
                     </includes>
                     <environmentVariables>
                         <DOCKER_HOST>tcp://127.0.0.1:2375</DOCKER_HOST>
-                        <TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE>/var/run/docker.sock</TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE>
+                        <TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE>/home/kruzvinicius/.docker/desktop/docker.sock</TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE>
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
                     </environmentVariables>
                 </configuration>

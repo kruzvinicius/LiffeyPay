@@ -1,9 +1,12 @@
 package com.liffeypay.liffeypay.controller;
 
 import com.liffeypay.liffeypay.config.SecurityConfig;
+import com.liffeypay.liffeypay.dto.DepositRequest;
+import com.liffeypay.liffeypay.dto.DepositResponse;
 import com.liffeypay.liffeypay.dto.TransactionResponse;
 import com.liffeypay.liffeypay.dto.WalletResponse;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
+import com.liffeypay.liffeypay.service.DepositService;
 import com.liffeypay.liffeypay.service.TransactionService;
 import com.liffeypay.liffeypay.service.WalletService;
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,6 +32,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +43,7 @@ class WalletControllerTest {
     @Autowired MockMvc mockMvc;
     @MockBean WalletService walletService;
     @MockBean TransactionService transactionService;
+    @MockBean DepositService depositService;
     @MockBean JwtDecoder jwtDecoder;
     @MockBean UserDetailsService userDetailsService;
 
@@ -131,5 +137,30 @@ class WalletControllerTest {
         mockMvc.perform(get("/api/v1/wallets/" + WALLET_ID + "/transactions")
                         .with(jwt().jwt(j -> j.subject("hacker@evil.com"))))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deposit_authenticated_returns201() throws Exception {
+        DepositResponse depositResponse = new DepositResponse(
+            UUID.randomUUID(), WALLET_ID, new BigDecimal("100.0000"), "EUR", Instant.now());
+        when(depositService.deposit(eq(OWNER_EMAIL), any(), any())).thenReturn(depositResponse);
+
+        mockMvc.perform(post("/api/v1/wallets/me/deposit")
+                .with(jwt().jwt(j -> j.subject(OWNER_EMAIL)))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 100.00}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.walletId").value(WALLET_ID.toString()));
+    }
+
+    @Test
+    void deposit_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/wallets/me/deposit")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 100.00}"))
+            .andExpect(status().isUnauthorized());
     }
 }

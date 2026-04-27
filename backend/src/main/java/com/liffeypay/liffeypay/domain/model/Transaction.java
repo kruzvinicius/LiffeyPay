@@ -24,7 +24,7 @@ public class Transaction {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "source_wallet_id", nullable = false)
+    @JoinColumn(name = "source_wallet_id")
     private Wallet sourceWallet;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -41,6 +41,11 @@ public class Transaction {
     @Column(nullable = false)
     @Builder.Default
     private TransactionStatus status = TransactionStatus.COMPLETED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private TransactionType type = TransactionType.TRANSFER;
 
     @Column(name = "idempotency_key", unique = true)
     private String idempotencyKey;
