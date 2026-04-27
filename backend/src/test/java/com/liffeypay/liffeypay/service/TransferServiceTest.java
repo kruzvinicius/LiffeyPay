@@ -9,10 +9,12 @@ import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.dto.TransferResponse;
+import com.liffeypay.liffeypay.exception.BusinessException;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
 import org.springframework.context.ApplicationEventPublisher;
 import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
+import com.liffeypay.liffeypay.exception.SelfTransferException;
 import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -145,6 +147,27 @@ class TransferServiceTest {
     }
 
     @Test
+    void transfer_currencyMismatch_throwsBusinessException() {
+        Wallet gbpTarget = Wallet.builder()
+            .id(targetId).balance(new BigDecimal("50.0000")).currency("GBP")
+            .user(User.builder()
+                .id(UUID.randomUUID()).fullName("Receiver").email("receiver@test.com")
+                .documentNumber("98765432100").passwordHash("hash")
+                .userType(UserType.INDIVIDUAL).build())
+            .build();
+
+        when(walletRepository.findByIdWithLock(sourceId)).thenReturn(Optional.of(source));
+        when(walletRepository.findByIdWithLock(targetId)).thenReturn(Optional.of(gbpTarget));
+
+        assertThatThrownBy(() -> transferService.transfer(
+            new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("Currency mismatch");
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
     void transfer_deniedByAuthorizer_throwsTransferNotAuthorizedException() {
         doThrow(new TransferNotAuthorizedException("Transfer denied"))
             .when(authorizationService).authorize(any());
@@ -227,6 +250,57 @@ class TransferServiceTest {
         var inOrder = inOrder(walletRepository);
         inOrder.verify(walletRepository).findByIdWithLock(bigSource);
         inOrder.verify(walletRepository).findByIdWithLock(smallTarget);
+    }
+
+    @Test
+    void transferByEmail_happyPath_debitSourceCreditTarget() {
+        when(walletRepository.findByUserEmail("sender@test.com")).thenReturn(Optional.of(source));
+        when(walletRepository.findByUserEmail("receiver@test.com")).thenReturn(Optional.of(target));
+        when(walletRepository.findByIdWithLock(sourceId)).thenReturn(Optional.of(source));
+        when(walletRepository.findByIdWithLock(targetId)).thenReturn(Optional.of(target));
+        when(transactionRepository.save(any())).thenReturn(savedTx(sourceId, targetId, new BigDecimal("40.0000")));
+
+        TransferResponse response = transferService.transferByEmail(
+            "sender@test.com", "receiver@test.com", new BigDecimal("40.00"), null);
+
+        assertThat(source.getBalance()).isEqualByComparingTo("60.0000");
+        assertThat(target.getBalance()).isEqualByComparingTo("90.0000");
+        assertThat(response.sourceWalletId()).isEqualTo(sourceId);
+        assertThat(response.targetWalletId()).isEqualTo(targetId);
+    }
+
+    @Test
+    void transferByEmail_selfTransfer_throwsSelfTransferException() {
+        when(walletRepository.findByUserEmail("sender@test.com")).thenReturn(Optional.of(source));
+
+        assertThatThrownBy(() -> transferService.transferByEmail(
+            "sender@test.com", "sender@test.com", new BigDecimal("10.00"), null))
+            .isInstanceOf(SelfTransferException.class);
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void transferByEmail_recipientNotFound_throwsResourceNotFoundException() {
+        when(walletRepository.findByUserEmail("sender@test.com")).thenReturn(Optional.of(source));
+        when(walletRepository.findByUserEmail("ghost@test.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> transferService.transferByEmail(
+            "sender@test.com", "ghost@test.com", new BigDecimal("10.00"), null))
+            .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void transferByEmail_senderNotFound_throwsResourceNotFoundException() {
+        when(walletRepository.findByUserEmail("nobody@test.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> transferService.transferByEmail(
+            "nobody@test.com", "receiver@test.com", new BigDecimal("10.00"), null))
+            .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(transactionRepository, never()).save(any());
     }
 
     private Transaction savedTx(UUID srcId, UUID tgtId, BigDecimal amount) {

@@ -8,15 +8,18 @@ import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.dto.TransferResponse;
+import com.liffeypay.liffeypay.exception.BusinessException;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
 import com.liffeypay.liffeypay.exception.MerchantTransferNotAllowedException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
+import com.liffeypay.liffeypay.exception.SelfTransferException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -40,6 +43,31 @@ public class TransferService {
         return executeTransfer(request, null);
     }
 
+    @Transactional
+    public TransferResponse transferByEmail(
+            String senderEmail, String recipientEmail, BigDecimal amount, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(this::toResponse)
+                .orElseGet(() -> executeTransferByEmail(senderEmail, recipientEmail, amount, idempotencyKey));
+        }
+        return executeTransferByEmail(senderEmail, recipientEmail, amount, null);
+    }
+
+    private TransferResponse executeTransferByEmail(
+            String senderEmail, String recipientEmail, BigDecimal amount, String idempotencyKey) {
+        Wallet source = walletRepository.findByUserEmail(senderEmail)
+            .orElseThrow(() -> new ResourceNotFoundException("Wallet not found for: " + senderEmail));
+        Wallet target = walletRepository.findByUserEmail(recipientEmail)
+            .orElseThrow(() -> new ResourceNotFoundException("No account found for email: " + recipientEmail));
+
+        if (source.getId().equals(target.getId())) {
+            throw new SelfTransferException();
+        }
+
+        return executeTransfer(new TransferRequest(source.getId(), target.getId(), amount), idempotencyKey);
+    }
+
     private TransferResponse executeTransfer(TransferRequest request, String idempotencyKey) {
         authorizationService.authorize(request);
 
@@ -60,6 +88,11 @@ public class TransferService {
 
         if (source.getUser().getUserType() == UserType.MERCHANT) {
             throw new MerchantTransferNotAllowedException(source.getId());
+        }
+
+        if (!source.getCurrency().equals(target.getCurrency())) {
+            throw new BusinessException("Currency mismatch: cannot transfer between " +
+                source.getCurrency() + " and " + target.getCurrency() + " wallets");
         }
 
         if (source.getBalance().compareTo(request.amount()) < 0) {
