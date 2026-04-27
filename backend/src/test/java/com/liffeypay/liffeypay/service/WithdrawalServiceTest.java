@@ -108,4 +108,26 @@ class WithdrawalServiceTest {
 
         verify(transactionRepository, never()).save(any());
     }
+
+    @Test
+    void withdraw_walletNotFound_throwsResourceNotFoundException() {
+        when(walletRepository.findByUserEmailWithLock(OWNER_EMAIL)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(OWNER_EMAIL, new BigDecimal("30.00"), null))
+            .isInstanceOf(com.liffeypay.liffeypay.exception.ResourceNotFoundException.class);
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void withdraw_newIdempotencyKey_executesAndSaves() {
+        String key = "new-key-xyz";
+        when(transactionRepository.findByIdempotencyKey(key)).thenReturn(Optional.empty());
+        when(walletRepository.findByUserEmailWithLock(OWNER_EMAIL)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.save(any())).thenReturn(savedWithdrawal(new BigDecimal("30.0000")));
+
+        withdrawalService.withdraw(OWNER_EMAIL, new BigDecimal("30.00"), key);
+
+        verify(transactionRepository).save(any());
+    }
 }
