@@ -190,7 +190,23 @@ class WalletControllerTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\": 0}"))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void withdraw_insufficientFunds_returns422() throws Exception {
+        when(withdrawalService.withdraw(eq(OWNER_EMAIL), any(), any()))
+            .thenThrow(new com.liffeypay.liffeypay.exception.InsufficientFundsException(
+                WALLET_ID, new BigDecimal("10.0000"), new BigDecimal("50.0000")));
+
+        mockMvc.perform(post("/api/v1/wallets/me/withdraw")
+                .with(jwt().jwt(j -> j.subject(OWNER_EMAIL)))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 50.00}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
