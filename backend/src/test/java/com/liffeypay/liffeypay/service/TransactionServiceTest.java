@@ -105,6 +105,27 @@ class TransactionServiceTest {
         assertThat(result.getContent().get(0).counterpartWalletId()).isNull();
     }
 
+    @Test
+    void getTransactions_withdrawal_returnsWithdrawalTypeWithNullCounterpart() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        Transaction withdrawal = Transaction.builder()
+            .id(UUID.randomUUID()).sourceWallet(wallet)
+            .amount(new BigDecimal("25.0000")).currency("EUR")
+            .type(TransactionType.WITHDRAWAL)
+            .status(TransactionStatus.COMPLETED).createdAt(Instant.now()).build();
+
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findAllBySourceWalletIdOrTargetWalletId(walletId, walletId, pageable))
+            .thenReturn(new PageImpl<>(List.of(withdrawal)));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, pageable);
+
+        assertThat(result.getContent().get(0).type()).isEqualTo("WITHDRAWAL");
+        assertThat(result.getContent().get(0).counterpartWalletId()).isNull();
+    }
+
     private Wallet walletWithEmail(UUID id, String email) {
         return Wallet.builder().id(id)
             .user(User.builder().id(UUID.randomUUID()).fullName("Owner").email(email)

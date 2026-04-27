@@ -40,6 +40,10 @@ public class TransactionService {
             return new TransactionResponse(t.getId(), "DEPOSIT", null,
                 t.getAmount(), t.getCurrency(), t.getStatus().name(), t.getCreatedAt());
         }
+        if (t.getType() == TransactionType.WITHDRAWAL) {
+            return new TransactionResponse(t.getId(), "WITHDRAWAL", null,
+                t.getAmount(), t.getCurrency(), t.getStatus().name(), t.getCreatedAt());
+        }
         boolean sent = t.getSourceWallet().getId().equals(walletId);
         UUID counterpart = sent ? t.getTargetWallet().getId() : t.getSourceWallet().getId();
         return new TransactionResponse(
