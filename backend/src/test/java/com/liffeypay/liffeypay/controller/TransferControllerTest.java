@@ -7,7 +7,6 @@ import com.liffeypay.liffeypay.dto.TransferResponse;
 import com.liffeypay.liffeypay.exception.DuplicateTransferException;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
-import com.liffeypay.liffeypay.exception.SelfTransferException;
 import com.liffeypay.liffeypay.config.SecurityConfig;
 import com.liffeypay.liffeypay.service.TransferService;
 import org.junit.jupiter.api.Test;

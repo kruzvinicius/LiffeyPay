@@ -1,4 +1,3 @@
-// backend/src/main/java/com/liffeypay/liffeypay/controller/TransferController.java
 package com.liffeypay.liffeypay.controller;
 
 import com.liffeypay.liffeypay.dto.ApiResponse;
@@ -37,7 +36,7 @@ public class TransferController {
             @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
         return ApiResponse.ok(
-            transferService.transferByEmail(jwt.getSubject(), request.recipientEmail(), request.amount(), idempotencyKey),
-            "Transfer completed successfully");
+                transferService.transferByEmail(jwt.getSubject(), request.recipientEmail(), request.amount(), idempotencyKey),
+                "Transfer completed successfully");
     }
 }
