@@ -28,7 +28,7 @@ public class Transaction {
     private Wallet sourceWallet;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_wallet_id", nullable = false)
+    @JoinColumn(name = "target_wallet_id")
     private Wallet targetWallet;
 
     @Column(nullable = false, precision = 19, scale = 4)
