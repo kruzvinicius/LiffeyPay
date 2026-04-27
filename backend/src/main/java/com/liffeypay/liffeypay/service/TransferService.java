@@ -57,9 +57,9 @@ public class TransferService {
     private TransferResponse executeTransferByEmail(
             String senderEmail, String recipientEmail, BigDecimal amount, String idempotencyKey) {
         Wallet source = walletRepository.findByUserEmail(senderEmail)
-            .orElseThrow(() -> new ResourceNotFoundException("Wallet not found for: " + senderEmail));
+            .orElseThrow(() -> new ResourceNotFoundException("Wallet not found for email: " + senderEmail));
         Wallet target = walletRepository.findByUserEmail(recipientEmail)
-            .orElseThrow(() -> new ResourceNotFoundException("No account found for email: " + recipientEmail));
+            .orElseThrow(() -> new ResourceNotFoundException("Wallet not found for email: " + recipientEmail));
 
         if (source.getId().equals(target.getId())) {
             throw new SelfTransferException();

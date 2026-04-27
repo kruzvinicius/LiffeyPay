@@ -303,6 +303,20 @@ class TransferServiceTest {
         verify(transactionRepository, never()).save(any());
     }
 
+    @Test
+    void transferByEmail_withExistingIdempotencyKey_returnsCachedResultWithoutResolvingEmails() {
+        String key = "email-idem-key-123";
+        when(transactionRepository.findByIdempotencyKey(key))
+            .thenReturn(Optional.of(savedTx(sourceId, targetId, new BigDecimal("40.0000"))));
+
+        TransferResponse response = transferService.transferByEmail(
+            "sender@test.com", "receiver@test.com", new BigDecimal("40.00"), key);
+
+        assertThat(response.amount()).isEqualByComparingTo("40.0000");
+        verify(walletRepository, never()).findByUserEmail(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
     private Transaction savedTx(UUID srcId, UUID tgtId, BigDecimal amount) {
         Wallet src = Wallet.builder().id(srcId).currency("EUR").build();
         Wallet tgt = Wallet.builder().id(tgtId).currency("EUR").build();
