@@ -1,6 +1,5 @@
 package com.liffeypay.liffeypay.service;
 
-import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,7 +26,7 @@ public class HttpAuthorizationService implements AuthorizationService {
     }
 
     @Override
-    public void authorize(TransferRequest request) {
+    public void authorize() {
         try {
             AuthorizationResponse response = restClient.get()
                 .retrieve()

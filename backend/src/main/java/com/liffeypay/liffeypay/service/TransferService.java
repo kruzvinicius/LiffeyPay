@@ -69,7 +69,7 @@ public class TransferService {
     }
 
     private TransferResponse executeTransfer(TransferRequest request, String idempotencyKey) {
-        authorizationService.authorize(request);
+        authorizationService.authorize();
 
         // Acquire DB locks in consistent UUID order to prevent deadlocks under concurrency
         boolean sourceFirst =

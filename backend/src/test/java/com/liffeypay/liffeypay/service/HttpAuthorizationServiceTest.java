@@ -2,14 +2,10 @@ package com.liffeypay.liffeypay.service;
 
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import com.liffeypay.liffeypay.dto.TransferRequest;
 import com.liffeypay.liffeypay.exception.TransferNotAuthorizedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-
-import java.math.BigDecimal;
-import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
@@ -31,16 +27,12 @@ class HttpAuthorizationServiceTest {
             wm.getRuntimeInfo().getHttpBaseUrl() + "/authorize", 3000);
     }
 
-    private TransferRequest request() {
-        return new TransferRequest(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("50.00"));
-    }
-
     @Test
     void authorize_authorized_noExceptionThrown() {
         wm.stubFor(get(urlEqualTo("/authorize"))
             .willReturn(okJson("{\"status\":\"AUTHORIZED\"}")));
 
-        assertThatNoException().isThrownBy(() -> service.authorize(request()));
+        assertThatNoException().isThrownBy(() -> service.authorize());
     }
 
     @Test
@@ -48,7 +40,7 @@ class HttpAuthorizationServiceTest {
         wm.stubFor(get(urlEqualTo("/authorize"))
             .willReturn(okJson("{\"status\":\"DENIED\"}")));
 
-        assertThatThrownBy(() -> service.authorize(request()))
+        assertThatThrownBy(() -> service.authorize())
             .isInstanceOf(TransferNotAuthorizedException.class);
     }
 
@@ -57,7 +49,7 @@ class HttpAuthorizationServiceTest {
         wm.stubFor(get(urlEqualTo("/authorize"))
             .willReturn(aResponse().withStatus(500)));
 
-        assertThatThrownBy(() -> service.authorize(request()))
+        assertThatThrownBy(() -> service.authorize())
             .isInstanceOf(TransferNotAuthorizedException.class);
     }
 
@@ -66,7 +58,7 @@ class HttpAuthorizationServiceTest {
         wm.stubFor(get(urlEqualTo("/authorize"))
             .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
 
-        assertThatThrownBy(() -> service.authorize(request()))
+        assertThatThrownBy(() -> service.authorize())
             .isInstanceOf(TransferNotAuthorizedException.class);
     }
 }

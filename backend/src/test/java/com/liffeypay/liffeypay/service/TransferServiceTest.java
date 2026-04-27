@@ -170,7 +170,7 @@ class TransferServiceTest {
     @Test
     void transfer_deniedByAuthorizer_throwsTransferNotAuthorizedException() {
         doThrow(new TransferNotAuthorizedException("Transfer denied"))
-            .when(authorizationService).authorize(any());
+            .when(authorizationService).authorize();
 
         assertThatThrownBy(() -> transferService.transfer(
             new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null))
@@ -183,7 +183,7 @@ class TransferServiceTest {
     @Test
     void transfer_authorizerUnavailable_throwsTransferNotAuthorizedException() {
         doThrow(new TransferNotAuthorizedException("Authorization service unavailable"))
-            .when(authorizationService).authorize(any());
+            .when(authorizationService).authorize();
 
         assertThatThrownBy(() -> transferService.transfer(
             new TransferRequest(sourceId, targetId, new BigDecimal("10.0000")), null))
