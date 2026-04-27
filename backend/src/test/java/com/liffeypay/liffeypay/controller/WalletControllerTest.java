@@ -5,10 +5,12 @@ import com.liffeypay.liffeypay.dto.DepositRequest;
 import com.liffeypay.liffeypay.dto.DepositResponse;
 import com.liffeypay.liffeypay.dto.TransactionResponse;
 import com.liffeypay.liffeypay.dto.WalletResponse;
+import com.liffeypay.liffeypay.dto.WithdrawalResponse;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import com.liffeypay.liffeypay.service.DepositService;
 import com.liffeypay.liffeypay.service.TransactionService;
 import com.liffeypay.liffeypay.service.WalletService;
+import com.liffeypay.liffeypay.service.WithdrawalService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -44,6 +46,7 @@ class WalletControllerTest {
     @MockBean WalletService walletService;
     @MockBean TransactionService transactionService;
     @MockBean DepositService depositService;
+    @MockBean WithdrawalService withdrawalService;
     @MockBean JwtDecoder jwtDecoder;
     @MockBean UserDetailsService userDetailsService;
 
@@ -161,6 +164,41 @@ class WalletControllerTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\": 100.00}"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void withdraw_authenticated_returns201() throws Exception {
+        WithdrawalResponse withdrawalResponse = new WithdrawalResponse(
+            UUID.randomUUID(), WALLET_ID, new BigDecimal("50.0000"), "EUR", Instant.now());
+        when(withdrawalService.withdraw(eq(OWNER_EMAIL), any(), any())).thenReturn(withdrawalResponse);
+
+        mockMvc.perform(post("/api/v1/wallets/me/withdraw")
+                .with(jwt().jwt(j -> j.subject(OWNER_EMAIL)))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 50.00}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.walletId").value(WALLET_ID.toString()));
+    }
+
+    @Test
+    void withdraw_invalidAmount_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/wallets/me/withdraw")
+                .with(jwt().jwt(j -> j.subject(OWNER_EMAIL)))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 0}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void withdraw_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/wallets/me/withdraw")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\": 50.00}"))
             .andExpect(status().isUnauthorized());
     }
 }

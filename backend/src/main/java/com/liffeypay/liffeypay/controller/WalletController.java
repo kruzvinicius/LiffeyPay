@@ -6,9 +6,12 @@ import com.liffeypay.liffeypay.dto.DepositResponse;
 import com.liffeypay.liffeypay.dto.PageResponse;
 import com.liffeypay.liffeypay.dto.TransactionResponse;
 import com.liffeypay.liffeypay.dto.WalletResponse;
+import com.liffeypay.liffeypay.dto.WithdrawalRequest;
+import com.liffeypay.liffeypay.dto.WithdrawalResponse;
 import com.liffeypay.liffeypay.service.DepositService;
 import com.liffeypay.liffeypay.service.TransactionService;
 import com.liffeypay.liffeypay.service.WalletService;
+import com.liffeypay.liffeypay.service.WithdrawalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +32,7 @@ public class WalletController {
     private final WalletService walletService;
     private final TransactionService transactionService;
     private final DepositService depositService;
+    private final WithdrawalService withdrawalService;
 
     @GetMapping("/me")
     public ApiResponse<WalletResponse> getMyWallet(@AuthenticationPrincipal Jwt jwt) {
@@ -60,5 +64,14 @@ public class WalletController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
         return ApiResponse.ok(depositService.deposit(jwt.getSubject(), request.amount(), idempotencyKey));
+    }
+
+    @PostMapping("/me/withdraw")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<WithdrawalResponse> withdraw(
+            @Valid @RequestBody WithdrawalRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.ok(withdrawalService.withdraw(jwt.getSubject(), request.amount(), idempotencyKey));
     }
 }
