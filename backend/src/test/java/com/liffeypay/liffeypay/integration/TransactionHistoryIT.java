@@ -149,6 +149,7 @@ class TransactionHistoryIT extends IntegrationTestBase {
             "/api/v1/wallets/" + aliceWallet + "/transactions?type=SENT",
             HttpMethod.GET, withAuth(aliceJwt), Map.class);
 
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         List<Map<String, Object>> content = extractContent(response);
         assertThat(content).hasSize(1);
         assertThat(content.get(0).get("type")).isEqualTo("SENT");
@@ -175,6 +176,7 @@ class TransactionHistoryIT extends IntegrationTestBase {
             "/api/v1/wallets/" + bobWallet + "/transactions?type=RECEIVED",
             HttpMethod.GET, withAuth(bobJwt), Map.class);
 
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         List<Map<String, Object>> content = extractContent(response);
         assertThat(content).hasSize(1);
         assertThat(content.get(0).get("type")).isEqualTo("RECEIVED");
@@ -199,6 +201,7 @@ class TransactionHistoryIT extends IntegrationTestBase {
             "/api/v1/wallets/" + aliceWallet + "/transactions?type=WITHDRAWAL",
             HttpMethod.GET, withAuth(aliceJwt), Map.class);
 
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         List<Map<String, Object>> content = extractContent(response);
         assertThat(content).hasSize(1);
         assertThat(content.get(0).get("type")).isEqualTo("WITHDRAWAL");
