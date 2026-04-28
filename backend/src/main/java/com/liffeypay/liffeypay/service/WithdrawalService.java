@@ -10,6 +10,7 @@ import com.liffeypay.liffeypay.dto.WithdrawalResponse;
 import com.liffeypay.liffeypay.exception.InsufficientFundsException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class WithdrawalService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final AuthorizationService authorizationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WithdrawalResponse withdraw(String ownerEmail, BigDecimal amount, String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -53,6 +55,9 @@ public class WithdrawalService {
             .status(TransactionStatus.COMPLETED)
             .idempotencyKey(idempotencyKey)
             .build());
+
+        eventPublisher.publishEvent(new TransferCompletedEvent(
+            saved.getId(), wallet.getId(), null, amount, wallet.getCurrency()));
 
         return toResponse(saved);
     }

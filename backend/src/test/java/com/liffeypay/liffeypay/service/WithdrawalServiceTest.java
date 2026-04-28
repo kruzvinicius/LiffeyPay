@@ -30,6 +30,7 @@ class WithdrawalServiceTest {
     @Mock WalletRepository walletRepository;
     @Mock TransactionRepository transactionRepository;
     @Mock AuthorizationService authorizationService;
+    @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
     @InjectMocks WithdrawalService withdrawalService;
 
     private static final String OWNER_EMAIL = "owner@test.com";
@@ -129,5 +130,23 @@ class WithdrawalServiceTest {
         withdrawalService.withdraw(OWNER_EMAIL, new BigDecimal("30.00"), key);
 
         verify(transactionRepository).save(any());
+    }
+
+    @Test
+    void withdraw_success_publishesWithdrawalEvent() {
+        Transaction saved = savedWithdrawal(new BigDecimal("30.0000"));
+        when(walletRepository.findByUserEmailWithLock(OWNER_EMAIL)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.save(any())).thenReturn(saved);
+
+        withdrawalService.withdraw(OWNER_EMAIL, new BigDecimal("30.00"), null);
+
+        ArgumentCaptor<TransferCompletedEvent> captor = ArgumentCaptor.forClass(TransferCompletedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        TransferCompletedEvent event = captor.getValue();
+        assertThat(event.transactionId()).isEqualTo(saved.getId());
+        assertThat(event.sourceWalletId()).isEqualTo(WALLET_ID);
+        assertThat(event.targetWalletId()).isNull();
+        assertThat(event.amount()).isEqualByComparingTo("30.0000");
+        assertThat(event.currency()).isEqualTo("EUR");
     }
 }
