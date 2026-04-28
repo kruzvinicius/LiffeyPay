@@ -30,6 +30,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -122,7 +123,7 @@ class WalletControllerTest {
             new BigDecimal("50.0000"), "EUR", "COMPLETED", Instant.now()
         );
         Page<TransactionResponse> page = new PageImpl<>(List.of(tx));
-        when(transactionService.getTransactions(eq(WALLET_ID), eq(OWNER_EMAIL), any()))
+        when(transactionService.getTransactions(eq(WALLET_ID), eq(OWNER_EMAIL), isNull(), any()))
             .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/wallets/" + WALLET_ID + "/transactions")
@@ -134,7 +135,7 @@ class WalletControllerTest {
 
     @Test
     void getTransactions_nonOwner_returns404() throws Exception {
-        when(transactionService.getTransactions(eq(WALLET_ID), eq("hacker@evil.com"), any()))
+        when(transactionService.getTransactions(eq(WALLET_ID), eq("hacker@evil.com"), isNull(), any()))
             .thenThrow(new ResourceNotFoundException("Wallet not found: " + WALLET_ID));
 
         mockMvc.perform(get("/api/v1/wallets/" + WALLET_ID + "/transactions")

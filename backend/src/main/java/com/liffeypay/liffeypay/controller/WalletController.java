@@ -54,7 +54,7 @@ public class WalletController {
             @AuthenticationPrincipal Jwt jwt) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ApiResponse.ok(PageResponse.from(
-            transactionService.getTransactions(walletId, jwt.getSubject(), pageable)));
+            transactionService.getTransactions(walletId, jwt.getSubject(), null, pageable)));
     }
 
     @PostMapping("/me/deposit")

@@ -5,6 +5,7 @@ import com.liffeypay.liffeypay.domain.model.TransactionType;
 import com.liffeypay.liffeypay.domain.repository.TransactionRepository;
 import com.liffeypay.liffeypay.domain.repository.WalletRepository;
 import com.liffeypay.liffeypay.dto.TransactionResponse;
+import com.liffeypay.liffeypay.exception.BusinessException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,8 @@ class TransactionServiceTest {
     private final UUID otherId  = UUID.fromString("bbbb0000-0000-0000-0000-000000000002");
     private static final String OWNER_EMAIL = "owner@test.com";
 
+    // ── existing tests (type = null → unfiltered) ──────────────────────────
+
     @Test
     void getTransactions_owner_returnsMixedPageWithCorrectTypes() {
         Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
@@ -56,7 +59,7 @@ class TransactionServiceTest {
             .thenReturn(new PageImpl<>(List.of(sent, received)));
 
         Page<TransactionResponse> result =
-            transactionService.getTransactions(walletId, OWNER_EMAIL, pageable);
+            transactionService.getTransactions(walletId, OWNER_EMAIL, null, pageable);
 
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).type()).isEqualTo("SENT");
@@ -71,7 +74,7 @@ class TransactionServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
 
         assertThatThrownBy(() ->
-            transactionService.getTransactions(walletId, "hacker@evil.com", PageRequest.of(0, 20)))
+            transactionService.getTransactions(walletId, "hacker@evil.com", null, PageRequest.of(0, 20)))
             .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -80,7 +83,7 @@ class TransactionServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-            transactionService.getTransactions(walletId, OWNER_EMAIL, PageRequest.of(0, 20)))
+            transactionService.getTransactions(walletId, OWNER_EMAIL, null, PageRequest.of(0, 20)))
             .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -99,7 +102,7 @@ class TransactionServiceTest {
             .thenReturn(new PageImpl<>(List.of(deposit)));
 
         Page<TransactionResponse> result =
-            transactionService.getTransactions(walletId, OWNER_EMAIL, pageable);
+            transactionService.getTransactions(walletId, OWNER_EMAIL, null, pageable);
 
         assertThat(result.getContent().get(0).type()).isEqualTo("DEPOSIT");
         assertThat(result.getContent().get(0).counterpartWalletId()).isNull();
@@ -120,11 +123,126 @@ class TransactionServiceTest {
             .thenReturn(new PageImpl<>(List.of(withdrawal)));
 
         Page<TransactionResponse> result =
-            transactionService.getTransactions(walletId, OWNER_EMAIL, pageable);
+            transactionService.getTransactions(walletId, OWNER_EMAIL, null, pageable);
 
         assertThat(result.getContent().get(0).type()).isEqualTo("WITHDRAWAL");
         assertThat(result.getContent().get(0).counterpartWalletId()).isNull();
     }
+
+    // ── new tests: type filter dispatch ────────────────────────────────────
+
+    @Test
+    void getTransactions_withTypeDeposit_callsTargetWalletFilter() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        Transaction deposit = Transaction.builder()
+            .id(UUID.randomUUID()).targetWallet(wallet)
+            .amount(new BigDecimal("100.0000")).currency("EUR")
+            .type(TransactionType.DEPOSIT)
+            .status(TransactionStatus.COMPLETED).createdAt(Instant.now()).build();
+
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findByTargetWalletIdAndType(walletId, TransactionType.DEPOSIT, pageable))
+            .thenReturn(new PageImpl<>(List.of(deposit)));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, "DEPOSIT", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).type()).isEqualTo("DEPOSIT");
+    }
+
+    @Test
+    void getTransactions_withTypeWithdrawal_callsSourceWalletFilter() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        Transaction withdrawal = Transaction.builder()
+            .id(UUID.randomUUID()).sourceWallet(wallet)
+            .amount(new BigDecimal("25.0000")).currency("EUR")
+            .type(TransactionType.WITHDRAWAL)
+            .status(TransactionStatus.COMPLETED).createdAt(Instant.now()).build();
+
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findBySourceWalletIdAndType(walletId, TransactionType.WITHDRAWAL, pageable))
+            .thenReturn(new PageImpl<>(List.of(withdrawal)));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, "WITHDRAWAL", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).type()).isEqualTo("WITHDRAWAL");
+    }
+
+    @Test
+    void getTransactions_withTypeSent_callsSourceWalletFilterWithTransfer() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        Wallet other = Wallet.builder().id(otherId).balance(BigDecimal.ZERO).currency("EUR").build();
+        Transaction sent = Transaction.builder()
+            .id(UUID.randomUUID()).sourceWallet(wallet).targetWallet(other)
+            .amount(new BigDecimal("50.0000")).currency("EUR")
+            .type(TransactionType.TRANSFER)
+            .status(TransactionStatus.COMPLETED).createdAt(Instant.now()).build();
+
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findBySourceWalletIdAndType(walletId, TransactionType.TRANSFER, pageable))
+            .thenReturn(new PageImpl<>(List.of(sent)));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, "SENT", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).type()).isEqualTo("SENT");
+    }
+
+    @Test
+    void getTransactions_withTypeReceived_callsTargetWalletFilterWithTransfer() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        Wallet other = Wallet.builder().id(otherId).balance(BigDecimal.ZERO).currency("EUR").build();
+        Transaction received = Transaction.builder()
+            .id(UUID.randomUUID()).sourceWallet(other).targetWallet(wallet)
+            .amount(new BigDecimal("30.0000")).currency("EUR")
+            .type(TransactionType.TRANSFER)
+            .status(TransactionStatus.COMPLETED).createdAt(Instant.now()).build();
+
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findByTargetWalletIdAndType(walletId, TransactionType.TRANSFER, pageable))
+            .thenReturn(new PageImpl<>(List.of(received)));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, "RECEIVED", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).type()).isEqualTo("RECEIVED");
+    }
+
+    @Test
+    void getTransactions_withNullType_callsUnfilteredQuery() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(transactionRepository.findAllBySourceWalletIdOrTargetWalletId(walletId, walletId, pageable))
+            .thenReturn(new PageImpl<>(List.of()));
+
+        Page<TransactionResponse> result =
+            transactionService.getTransactions(walletId, OWNER_EMAIL, null, pageable);
+
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void getTransactions_withInvalidType_throwsBusinessException() {
+        Wallet wallet = walletWithEmail(walletId, OWNER_EMAIL);
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+
+        assertThatThrownBy(() ->
+            transactionService.getTransactions(walletId, OWNER_EMAIL, "INVALID", PageRequest.of(0, 20)))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("Invalid transaction type filter: INVALID");
+    }
+
+    // ── helper ─────────────────────────────────────────────────────────────
 
     private Wallet walletWithEmail(UUID id, String email) {
         return Wallet.builder().id(id)
