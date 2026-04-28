@@ -6,6 +6,7 @@ import com.liffeypay.liffeypay.dto.DepositResponse;
 import com.liffeypay.liffeypay.dto.TransactionResponse;
 import com.liffeypay.liffeypay.dto.WalletResponse;
 import com.liffeypay.liffeypay.dto.WithdrawalResponse;
+import com.liffeypay.liffeypay.exception.BusinessException;
 import com.liffeypay.liffeypay.exception.ResourceNotFoundException;
 import com.liffeypay.liffeypay.service.DepositService;
 import com.liffeypay.liffeypay.service.TransactionService;
@@ -30,7 +31,6 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -123,7 +123,7 @@ class WalletControllerTest {
             new BigDecimal("50.0000"), "EUR", "COMPLETED", Instant.now()
         );
         Page<TransactionResponse> page = new PageImpl<>(List.of(tx));
-        when(transactionService.getTransactions(eq(WALLET_ID), eq(OWNER_EMAIL), isNull(), any()))
+        when(transactionService.getTransactions(eq(WALLET_ID), eq(OWNER_EMAIL), any(), any()))
             .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/wallets/" + WALLET_ID + "/transactions")
@@ -135,12 +135,24 @@ class WalletControllerTest {
 
     @Test
     void getTransactions_nonOwner_returns404() throws Exception {
-        when(transactionService.getTransactions(eq(WALLET_ID), eq("hacker@evil.com"), isNull(), any()))
+        when(transactionService.getTransactions(eq(WALLET_ID), eq("hacker@evil.com"), any(), any()))
             .thenThrow(new ResourceNotFoundException("Wallet not found: " + WALLET_ID));
 
         mockMvc.perform(get("/api/v1/wallets/" + WALLET_ID + "/transactions")
                         .with(jwt().jwt(j -> j.subject("hacker@evil.com"))))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getTransactions_invalidType_returns400() throws Exception {
+        when(transactionService.getTransactions(eq(WALLET_ID), eq(OWNER_EMAIL), eq("INVALID"), any()))
+            .thenThrow(new BusinessException(
+                "Invalid transaction type filter: INVALID. Valid values: DEPOSIT, WITHDRAWAL, SENT, RECEIVED"));
+
+        mockMvc.perform(get("/api/v1/wallets/" + WALLET_ID + "/transactions?type=INVALID")
+                        .with(jwt().jwt(j -> j.subject(OWNER_EMAIL))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test

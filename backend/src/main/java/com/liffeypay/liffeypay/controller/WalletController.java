@@ -51,10 +51,11 @@ public class WalletController {
             @PathVariable UUID walletId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String type,
             @AuthenticationPrincipal Jwt jwt) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ApiResponse.ok(PageResponse.from(
-            transactionService.getTransactions(walletId, jwt.getSubject(), null, pageable)));
+            transactionService.getTransactions(walletId, jwt.getSubject(), type, pageable)));
     }
 
     @PostMapping("/me/deposit")
