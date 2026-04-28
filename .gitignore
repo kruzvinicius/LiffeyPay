@@ -35,6 +35,9 @@ build/
 ### CLAUDE ###
 .claude/
 
+### Superpowers (workflow pessoal) ###
+**/docs/superpowers/
+
 ### Node / Frontend (futuro) ###
 node_modules/
 dist/
